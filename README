@@ -37,9 +37,16 @@ mapping.ipynb
 Individual simulations in no particular order:
 ++++++++++++++++++++++++++++++++++++++++++++++
 
-TRAFIC SIMULATION:
+TRAFFIC SIMULATION:
 simulation_traffic.py
-    generates:
+    generates: NAME OF FILES IT OUTPUTS HERE
  -> simulation_traffic_visualisations.py
-simulation_demand.py -> simulation_demand_visualisations.ipynb
+
+DEMAND SIMULATION:
+simulation_demand.py
+    generates: simulation_demand_results.csv
+               simulation_demand_summary.csv
+                    - bootstraps all the raw demand values and sends it through route gen and LP.
+                    Then plots the data using the visualisation file. This came out very well.
+ -> simulation_demand_visualisations.ipynb
 

@@ -1130,7 +1130,7 @@ if __name__ == "__main__":
     results_df.to_csv(
         os.path.join(
             OUTPUT_DIR,
-            "Bootstrap_Results.csv"
+            "simulation_demand_results.csv"
         ),
         index=False
     )
@@ -1198,7 +1198,7 @@ if __name__ == "__main__":
     summary.to_csv(
         os.path.join(
             OUTPUT_DIR,
-            "Bootstrap_Summary.csv"
+            "simulation_demand_summary.csv"
         ),
         index=False
     )
@@ -1273,11 +1273,11 @@ if __name__ == "__main__":
     )
 
     print(
-        "  Bootstrap_Results.csv"
+        "  simulation_demand_results.csv"
     )
 
     print(
-        "  Bootstrap_Summary.csv"
+        "  simulation_demand_summary.csv"
     )
 
     print(
