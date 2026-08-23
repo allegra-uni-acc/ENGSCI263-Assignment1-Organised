@@ -1,0 +1,16 @@
+Metric,Value
+Model,C
+Weekday Cost,50261.81999999999
+Saturday Cost,23894.010000000002
+Weekly Cost,275203.11
+Weekday Stores Missed,11
+Saturday Stores Missed,0
+Total Weekly Stores Missed,55
+Weekday Penalty Cost,9500
+Saturday Penalty Cost,0
+Total Weekly Penalty Cost,47500
+Weekday Owned Shifts,35
+Weekday Wet-Leased Trips,0
+Saturday Owned Shifts,25
+Saturday Wet-Leased Trips,0
+Total Optimal Routes,60

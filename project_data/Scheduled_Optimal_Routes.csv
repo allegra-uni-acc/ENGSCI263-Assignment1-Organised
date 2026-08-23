@@ -1,0 +1,61 @@
+Day,Truck,Scheduled_Shift,Start_Time,End_Time,Overtime_Minutes,Route,Demand,Duration_hours,Vehicle_Type,Trip_Cost_NZD
+Saturday,Truck 2,2pm,14:00,17:35,0.0,Warehouse -> New World Mt Albert -> New World Point Chevalier -> Warehouse,10.0,3.585755555555556,Owned,788.87
+Saturday,Truck 3,2pm,14:00,17:30,0.0,Warehouse -> Pak 'n Save Royal Oak -> Four Square Onehunga -> Warehouse,10.0,3.4931916666666667,Owned,768.5
+Saturday,Truck 4,2pm,14:00,17:29,0.0,Warehouse -> Pak 'n Save Sylvia Park -> Warehouse,8.0,3.4915416666666665,Owned,768.14
+Saturday,Truck 5,2pm,14:00,17:09,0.0,Warehouse -> Pak 'n Save Clendon -> Warehouse,7.0,3.1575944444444444,Owned,694.67
+Saturday,Truck 6,2pm,14:00,17:03,0.0,Warehouse -> Pak 'n Save Mangere -> Warehouse,8.0,3.0443249999999997,Owned,669.75
+Saturday,Truck 1,8am,08:00,14:45,44.69533333333334,Warehouse -> New World Long Bay -> Four Square Torbay -> New World Browns Bay -> New World Milford -> Warehouse,16.0,6.744922222222223,Owned,1810.0
+Saturday,Truck 10,8am,08:00,11:55,0.0,Warehouse -> Pak 'n Save Lincoln Road -> Four Square Fair Price Henderson -> Warehouse,10.0,3.912919444444445,Owned,860.84
+Saturday,Truck 11,8am,08:00,11:52,0.0,Warehouse -> Pak 'n Save Albany -> Warehouse,8.0,3.861108333333333,Owned,849.44
+Saturday,Truck 12,8am,08:00,11:52,0.0,Warehouse -> New World Papatoetoe -> New World Southmall -> Warehouse,9.0,3.8602916666666665,Owned,849.26
+Saturday,Truck 13,8am,08:00,11:51,0.0,Warehouse -> Four Square Lancaster -> Pak 'n Save Wairau Road -> Warehouse,8.0,3.849972222222222,Owned,846.99
+Saturday,Truck 14,8am,08:00,11:51,0.0,Warehouse -> Pak 'n Save Manukau -> Four Square Botany Junction -> Warehouse,9.0,3.849830555555555,Owned,846.96
+Saturday,Truck 15,8am,08:00,11:49,0.0,Warehouse -> Four Square Ellerslie -> New World Stonefields -> Four Square St Heliers -> Warehouse,8.0,3.8145777777777776,Owned,839.21
+Saturday,Truck 16,8am,08:00,11:49,0.0,Warehouse -> Pak 'n Save Westgate -> Four Square Hobsonville -> Warehouse,9.0,3.812352777777778,Owned,838.72
+Saturday,Truck 17,8am,08:00,11:49,0.0,Warehouse -> New World New Lynn -> Four Square Glen Eden -> New World Green Bay -> Warehouse,10.0,3.8114861111111114,Owned,838.53
+Saturday,Truck 18,8am,08:00,11:43,0.0,Warehouse -> New World Newmarket -> New World Remuera -> Four Square Remuera -> Warehouse,9.0,3.724702777777778,Owned,819.43
+Saturday,Truck 19,8am,08:00,11:40,0.0,Warehouse -> New World Mt Roskill -> Pak 'n Save Mt Albert -> Warehouse,11.0,3.6679166666666663,Owned,806.94
+Saturday,Truck 2,8am,08:00,13:51,0.0,Warehouse -> Four Square Pakuranga Heights -> Pak 'n Save Botany -> New World Botany -> Warehouse,15.0,5.858166666666667,Owned,1500.0
+Saturday,Truck 20,8am,08:00,11:38,0.0,Warehouse -> Pak 'n Save Henderson -> Warehouse,9.0,3.6308583333333337,Owned,798.79
+Saturday,Truck 3,8am,08:00,12:59,0.0,Warehouse -> New World Papakura -> Pak 'n Save Papakura -> Warehouse,12.0,4.990341666666667,Owned,1190.0
+Saturday,Truck 4,8am,08:00,12:59,0.0,Warehouse -> Pak 'n Save Glen Innes -> New World Eastridge -> Warehouse,12.0,4.980722222222222,Owned,1190.0
+Saturday,Truck 5,8am,08:00,12:52,0.0,Warehouse -> New World Birkenhead -> New World Devonport -> New World Metro Shore City -> Warehouse,10.0,4.862352777777778,Owned,1190.0
+Saturday,Truck 6,8am,08:00,12:51,0.0,Warehouse -> Pak 'n Save Highland Park -> Four Square Cockle Bay -> New World Howick -> Warehouse,11.0,4.857713888888889,Owned,1190.0
+Saturday,Truck 7,8am,08:00,12:51,0.0,Warehouse -> New World Ormiston -> Pak 'n Save Ormiston -> Warehouse,12.0,4.843738888888889,Owned,1190.0
+Saturday,Truck 8,8am,08:00,11:59,0.0,Warehouse -> New World Victoria Park -> Four Square Britomart -> New World Metro Queen St -> Four Square Eden Terrace -> Warehouse,10.0,3.977688888888889,Owned,875.09
+Saturday,Truck 9,8am,08:00,11:58,0.0,Warehouse -> New World Albany -> New World Hobsonville -> Warehouse,8.0,3.972172222222222,Owned,873.88
+Weekdays,Truck 1,2pm,14:00,18:49,0.0,Warehouse -> Four Square Cockle Bay -> Four Square Botany Junction -> Warehouse,11.0,4.818352777777777,Owned,1190.0
+Weekdays,Truck 10,2pm,14:00,17:28,0.0,Warehouse -> New World New Lynn -> Warehouse,10.0,3.461580555555556,Owned,761.55
+Weekdays,Truck 11,2pm,14:00,17:24,0.0,Warehouse -> New World Mt Albert -> Warehouse,10.0,3.403827777777778,Owned,748.84
+Weekdays,Truck 12,2pm,14:00,17:07,0.0,Warehouse -> New World Mt Roskill -> Warehouse,10.0,3.1090722222222222,Owned,684.0
+Weekdays,Truck 13,2pm,14:00,16:39,0.0,Warehouse -> New World Metro Shore City -> Warehouse,5.0,2.648675,Owned,582.71
+Weekdays,Truck 14,2pm,14:00,16:24,0.0,Warehouse -> Four Square Fair Price Henderson -> Warehouse,5.0,2.4036472222222227,Owned,528.8
+Weekdays,Truck 15,2pm,14:00,16:13,0.0,Warehouse -> Four Square Glen Eden -> Warehouse,5.0,2.2125833333333333,Owned,486.77
+Weekdays,Truck 2,2pm,14:00,18:34,0.0,Warehouse -> Pak 'n Save Mt Albert -> Warehouse,14.0,4.560908333333334,Owned,1190.0
+Weekdays,Truck 3,2pm,14:00,17:54,0.0,Warehouse -> New World Remuera -> Warehouse,10.0,3.897319444444444,Owned,857.41
+Weekdays,Truck 4,2pm,14:00,17:51,0.0,Warehouse -> New World Papatoetoe -> Warehouse,10.0,3.846077777777778,Owned,846.14
+Weekdays,Truck 5,2pm,14:00,17:51,0.0,Warehouse -> Four Square Ellerslie -> Four Square Onehunga -> Warehouse,10.0,3.8452833333333336,Owned,845.96
+Weekdays,Truck 6,2pm,14:00,17:50,0.0,Warehouse -> Four Square Britomart -> New World Metro Queen St -> Warehouse,10.0,3.8305277777777778,Owned,842.72
+Weekdays,Truck 7,2pm,14:00,17:47,0.0,Warehouse -> New World Green Bay -> Warehouse,11.0,3.779316666666667,Owned,831.45
+Weekdays,Truck 8,2pm,14:00,17:46,0.0,Warehouse -> New World Newmarket -> Warehouse,10.0,3.759675,Owned,827.13
+Weekdays,Truck 9,2pm,14:00,17:32,0.0,Warehouse -> Four Square Torbay -> Warehouse,6.0,3.5379222222222224,Owned,778.34
+Weekdays,Truck 1,8am,08:00,13:59,0.0,Warehouse -> New World Howick -> Four Square Pakuranga Heights -> Warehouse,15.0,5.978455555555556,Owned,1500.0
+Weekdays,Truck 10,8am,08:00,13:30,0.0,Warehouse -> Pak 'n Save Papakura -> Warehouse,14.0,5.497675,Owned,1500.0
+Weekdays,Truck 11,8am,08:00,13:23,0.0,Warehouse -> Pak 'n Save Wairau Road -> Warehouse,14.0,5.389152777777778,Owned,1500.0
+Weekdays,Truck 12,8am,08:00,13:17,0.0,Warehouse -> Pak 'n Save Lincoln Road -> Warehouse,15.0,5.289413888888888,Owned,1500.0
+Weekdays,Truck 13,8am,08:00,13:15,0.0,Warehouse -> Pak 'n Save Clendon -> Warehouse,14.0,5.257594444444445,Owned,1500.0
+Weekdays,Truck 14,8am,08:00,13:08,0.0,Warehouse -> Pak 'n Save Manukau -> Warehouse,14.0,5.132416666666667,Owned,1500.0
+Weekdays,Truck 15,8am,08:00,13:08,0.0,Warehouse -> Pak 'n Save Henderson -> Warehouse,14.0,5.130858333333333,Owned,1500.0
+Weekdays,Truck 16,8am,08:00,13:06,0.0,Warehouse -> Pak 'n Save Westgate -> Warehouse,14.0,5.099722222222222,Owned,1500.0
+Weekdays,Truck 17,8am,08:00,12:59,0.0,Warehouse -> Pak 'n Save Sylvia Park -> Warehouse,13.0,4.9915416666666665,Owned,1190.0
+Weekdays,Truck 18,8am,08:00,12:58,0.0,Warehouse -> Four Square Eden Terrace -> New World Point Chevalier -> Warehouse,14.0,4.9676222222222215,Owned,1190.0
+Weekdays,Truck 19,8am,08:00,12:57,0.0,Warehouse -> Pak 'n Save Royal Oak -> Warehouse,15.0,4.948205555555556,Owned,1190.0
+Weekdays,Truck 2,8am,08:00,13:58,0.0,Warehouse -> Pak 'n Save Albany -> Warehouse,15.0,5.961108333333333,Owned,1500.0
+Weekdays,Truck 20,8am,08:00,12:51,0.0,Warehouse -> Pak 'n Save Mangere -> Warehouse,14.0,4.8443249999999995,Owned,1190.0
+Weekdays,Truck 3,8am,08:00,13:53,0.0,Warehouse -> New World Stonefields -> Four Square St Heliers -> Warehouse,15.0,5.890266666666666,Owned,1500.0
+Weekdays,Truck 4,8am,08:00,13:53,0.0,Warehouse -> New World Birkenhead -> Four Square Lancaster -> Warehouse,15.0,5.879208333333334,Owned,1500.0
+Weekdays,Truck 5,8am,08:00,13:44,0.0,Warehouse -> Pak 'n Save Ormiston -> Warehouse,15.0,5.727008333333333,Owned,1500.0
+Weekdays,Truck 6,8am,08:00,13:42,0.0,Warehouse -> Four Square Remuera -> New World Eastridge -> Warehouse,15.0,5.701519444444445,Owned,1500.0
+Weekdays,Truck 7,8am,08:00,13:34,0.0,Warehouse -> Pak 'n Save Botany -> Warehouse,14.0,5.5715055555555555,Owned,1500.0
+Weekdays,Truck 8,8am,08:00,13:33,0.0,Warehouse -> New World Hobsonville -> Four Square Hobsonville -> Warehouse,15.0,5.547783333333333,Owned,1500.0
+Weekdays,Truck 9,8am,08:00,13:31,0.0,Warehouse -> Pak 'n Save Highland Park -> Warehouse,14.0,5.521769444444445,Owned,1500.0
