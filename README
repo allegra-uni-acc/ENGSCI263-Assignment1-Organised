@@ -1,0 +1,45 @@
++++++++++++++++++++++++++
+How to navigate this repo:
++++++++++++++++++++++++++
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Run in this order, this will generate relevant files, which should save to project_data folder ->
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+demand_estimate_generation.ipynb
+    generates: demand_estimate.csv
+                    - estimates of demand using assumed norm dist and taking the 95th interval
+                    - saved to project_data
+route_generation.py
+    generates: feasible_routes.csv
+                    - table of all feasible routes. generated using nearest neighbor method.
+                    - saved to project_data
+mixed_integer_program.py ---> for this enter 'C' on keyboard when prompted to run cost reduction specifically
+    generates: Optimal_Routes.csv
+                    - table with the combination of routes that is optimal
+                    - saved to project_data
+               MIP_Summary.csv
+                    - table with the summary data for quick reference
+scheduling.py
+    generates: Scheduled_Optimal_Routes.csv
+                    - this is purely used for generating maps and sanity checking that the optimal
+                    routes that have been generated can actually be implemented in the real world
+                    - saved to project_data
+mapping.ipynb
+    generates: Optimal_Routes_Weekdays_8AM.html
+               Optimal_Routes_Weekdays_2PM.html
+               Optimal_Routes_Saturdays_8AM.html
+               Optimal_Routes_Saturdays_2PM.html
+                    - maps in html format for each shift Weekdays and Saturdays, can be screenshoted
+                    - saved to project_data/maps
+
+++++++++++++++++++++++++++++++++++++++++++++++
+Individual simulations in no particular order:
+++++++++++++++++++++++++++++++++++++++++++++++
+
+TRAFIC SIMULATION:
+simulation_traffic.py
+    generates:
+ -> simulation_traffic_visualisations.py
+simulation_demand.py -> simulation_demand_visualisations.ipynb
+
