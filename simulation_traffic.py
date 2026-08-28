@@ -11,7 +11,7 @@ import pandas as pd
 # USER SETTINGS
 # =========================
 
-ROUTE_FILE = Path("project_data/feasible_routes.csv")
+ROUTE_FILE = Path("project_data/optimal_routes.csv")
 
 N_SIMULATIONS = 1000
 RANDOM_SEED = 263

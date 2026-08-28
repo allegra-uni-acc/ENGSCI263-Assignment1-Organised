@@ -166,7 +166,7 @@ def summarise(results: pd.DataFrame, day_label: str, n_routes: int) -> pd.DataFr
     return pd.DataFrame({
         "metric": [
             "Routes scheduled", "Mean total cost", "Median total cost",
-            "95th pct total cost", "Mean total truck-hours",
+            "95th percentile total cost", "Mean total truck-hours",
             "Mean # routes > 3.5h", "P(any route > 4h)",
             "P(a shift-conflict occurs)", "Mean # conflicts per sim",
             "Mean wet lease cost",
