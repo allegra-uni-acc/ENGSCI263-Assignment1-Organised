@@ -9,7 +9,8 @@ import pandas as pd
 # USER SETTINGS
 # =========================
 
-ROUTES_FILE = Path("Optimal_Routes.csv")
+ROUTES_FILE = Path("project_data/Optimal_Routes.csv")
+MIP_SUMMARY_FILE = Path("project_data/MIP_Summary.csv")
 OUTPUT_DIR = Path("figures")
 
 OVERTIME_THRESHOLD_HOURS = 3.5
@@ -27,6 +28,20 @@ def load_routes(path: Path) -> pd.DataFrame:
         lambda r: sum(1 for s in r.split("->") if s.strip().lower() != "warehouse")
     )
     return df
+
+
+def load_mip_summary(path: Path) -> dict:
+    """
+    Read MIP_Summary.csv's (Metric, Value) rows into a dict, e.g.
+    summary["Weekday Cost"] -> 50261.82
+
+    This is the TRUE total cost per day-type, including skip penalties
+    for stores that were skipped entirely (and therefore have no row at
+    all in Optimal_Routes.csv -- a skipped store has no route, so its
+    cost can't be recovered by summing Trip_Cost_NZD).
+    """
+    summary_df = pd.read_csv(path)
+    return dict(zip(summary_df["Metric"], summary_df["Value"]))
 
 
 def _color_for(day: str) -> str:
@@ -76,17 +91,42 @@ def plot_cost_vs_duration(df: pd.DataFrame, ax=None):
     ax.legend()
 
 
-def plot_total_cost_by_day(df: pd.DataFrame, ax=None):
-    """Total daily fleet cost, split by day."""
+def plot_total_cost_by_day(df: pd.DataFrame, mip_summary: dict, ax=None):
+    """
+    Total daily fleet cost, split by day -- and split further into
+    transport cost (trucks actually driven) vs skip-penalty cost
+    (stores skipped entirely), using the TRUE totals from
+    MIP_Summary.csv rather than summing Optimal_Routes.csv alone,
+    since a skipped store has no route to sum.
+    """
     ax = ax or plt.gca()
-    totals = df.groupby("Day")["Trip_Cost_NZD"].sum()
-    colors = [_color_for(d) for d in totals.index]
-    bars = ax.bar(totals.index, totals.values, color=colors)
+
+    transport_cost = df.groupby("Day")["Trip_Cost_NZD"].sum()
+    days = list(transport_cost.index)
+
+    true_total = {
+        "Weekdays": float(mip_summary.get("Weekday Cost", transport_cost.get("Weekdays", 0))),
+        "Saturday": float(mip_summary.get("Saturday Cost", transport_cost.get("Saturday", 0))),
+    }
+    penalty_cost = {day: true_total[day] - transport_cost.get(day, 0) for day in days}
+
+    x = range(len(days))
+    transport_vals = [transport_cost.get(d, 0) for d in days]
+    penalty_vals = [penalty_cost.get(d, 0) for d in days]
+    colors = [_color_for(d) for d in days]
+
+    ax.bar(x, transport_vals, color=colors, label="Transport cost (routes driven)")
+    ax.bar(x, penalty_vals, bottom=transport_vals, color=colors, alpha=0.4,
+           hatch="//", label="Skip penalty (stores not served)")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(days)
     ax.set_ylabel("Total cost (NZD)")
-    ax.set_title("Total Fleet Cost by Day")
-    for bar, val in zip(bars, totals.values):
-        ax.text(bar.get_x() + bar.get_width() / 2, val, f"${val:,.0f}",
-                ha="center", va="bottom", fontsize=9)
+    ax.set_title("Total Fleet Cost by Day (incl. skip penalties)")
+    ax.legend(fontsize=8)
+
+    for i, d in enumerate(days):
+        total = transport_vals[i] + penalty_vals[i]
+        ax.text(i, total, f"${total:,.0f}", ha="center", va="bottom", fontsize=9)
 
 
 def plot_route_count_and_hours_by_day(df: pd.DataFrame, ax=None):
@@ -122,7 +162,7 @@ def _add_day_legend(ax):
     ax.legend(handles, DAY_COLORS.keys(), fontsize=8)
 
 
-def build_dashboard(df: pd.DataFrame, save_path: Path | None = None):
+def build_dashboard(df: pd.DataFrame, mip_summary: dict, save_path: Path | None = None):
     """Combine all six charts into a single dashboard figure."""
     fig, axes = plt.subplots(3, 2, figsize=(14, 15))
     fig.suptitle("Foodstuffs Trucking Schedule -- Cost & Duration Overview", fontsize=15, y=0.995)
@@ -130,7 +170,7 @@ def build_dashboard(df: pd.DataFrame, save_path: Path | None = None):
     plot_cost_per_route(df, axes[0, 0])
     plot_duration_per_route(df, axes[0, 1])
     plot_cost_vs_duration(df, axes[1, 0])
-    plot_total_cost_by_day(df, axes[1, 1])
+    plot_total_cost_by_day(df, mip_summary, axes[1, 1])
     plot_route_count_and_hours_by_day(df, axes[2, 0])
     plot_demand_distribution(df, axes[2, 1])
 
@@ -146,29 +186,50 @@ def build_dashboard(df: pd.DataFrame, save_path: Path | None = None):
 
 def main() -> None:
     df = load_routes(ROUTES_FILE)
+    mip_summary = load_mip_summary(MIP_SUMMARY_FILE)
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    # Individual charts, saved separately
-    chart_functions = {
-        "cost_per_route": plot_cost_per_route,
-        "duration_per_route": plot_duration_per_route,
-        "cost_vs_duration": plot_cost_vs_duration,
-        "total_cost_by_day": plot_total_cost_by_day,
-        "hours_vs_capacity": plot_route_count_and_hours_by_day,
-        "demand_distribution": plot_demand_distribution,
-    }
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_cost_per_route(df, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "cost_per_route.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
-    for name, func in chart_functions.items():
-        fig, ax = plt.subplots(figsize=(8, 5))
-        func(df, ax)
-        fig.tight_layout()
-        out_path = OUTPUT_DIR / f"{name}.png"
-        fig.savefig(out_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Saved {out_path}")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_duration_per_route(df, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "duration_per_route.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
-    # Combined dashboard
-    build_dashboard(df, save_path=OUTPUT_DIR / "dashboard.png")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_cost_vs_duration(df, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "cost_vs_duration.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_total_cost_by_day(df, mip_summary, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "total_cost_by_day.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_route_count_and_hours_by_day(df, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "hours_vs_capacity.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plot_demand_distribution(df, ax)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "demand_distribution.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    for name in ["cost_per_route", "duration_per_route", "cost_vs_duration",
+                 "total_cost_by_day", "hours_vs_capacity", "demand_distribution"]:
+        print(f"Saved {OUTPUT_DIR / (name + '.png')}")
+
+    build_dashboard(df, mip_summary, save_path=OUTPUT_DIR / "dashboard.png")
 
 
 if __name__ == "__main__":
