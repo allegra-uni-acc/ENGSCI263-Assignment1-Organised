@@ -11,13 +11,8 @@ import pandas as pd
 # USER SETTINGS
 # =========================
 
-# IMPORTANT TO READ HERE:
-# This new file should in theory model the traffic in such a way that accounts for what kind of shift it uses.
-# The general way that it works is by reading the Scheduled optimal routes rather than all routes and then judging based off of that
-# rather than by reading all possible paths.
-# This should in theory allow for the numbers to look significantly better than they did before
-
 ROUTE_FILE = Path(__file__).resolve().parent / "project_data" / "Scheduled_Optimal_Routes.csv"
+OUTPUT_FILE = Path(__file__).resolve().parent / "project_data" / "simulation_traffic_results.csv"
 
 N_SIMULATIONS = 1000
 RANDOM_SEED = 263
@@ -25,25 +20,19 @@ RANDOM_SEED = 263
 # --- Traffic variation ---------------------------------------------------
 # Shared across all routes in the same (Day, Shift) group in a given
 # simulation -- represents "today's 8am peak was worse/better than usual".
-SHIFT_TO_SHIFT_SIGMA = 0.25
+SHIFT_TO_SHIFT_SIGMA = 0.10
 # Independent variation for each individual route on top of that.
-ROUTE_TO_ROUTE_SIGMA = 0.15
+ROUTE_TO_ROUTE_SIGMA = 0.06
 
 # ASSUMPTION: mean traffic multiplier per shift. 8am overlaps the morning
 # commute peak more heavily than 2pm (which only tails into the evening
 # peak toward the end of a long route); both are centred so a "typical"
 # day reproduces roughly the durations already in the schedule.
-# ADJUST THESE if you guys find real traffic-index data to calibrate against.
+# ADJUST THESE if you have real traffic-index data to calibrate against.
 SHIFT_TRAFFIC_MEAN = {
-    "8am": 1.10,
-    "2pm": 1.05,
+    "8am": 1.03,
+    "2pm": 1.02,
 }
-
-# --- Demand variation ------------------------------------------------------
-# Day-to-day variation in pallets ordered per store, as a fraction of the
-# planned (baseline) demand on that route. May need to adjust based off of noise within the data set but I think this is
-# fine
-DEMAND_SIGMA_FRACTION = 0.15
 
 # --- Project constants -------------------------------------------------
 UNLOAD_MINUTES_PER_PALLET = 18.0
@@ -52,12 +41,13 @@ OVERTIME_THRESHOLD_HOURS = 4.0
 OVERTIME_COST_PER_HOUR = 310.0
 WET_LEASE_COST_PER_2H_BLOCK = 1400.0
 
-TRUCKS_PER_SHIFT = 20
-SHIFT_TARGET_HOURS = 3.5
-
-
-def parse_route(route_text: str) -> List[str]:
-    return [p.strip() for p in str(route_text).split("->") if p.strip()]
+# SIMPLIFICATION: a truck whose AM route finishes only slightly after 14:00
+# is treated as NOT needing a wet-lease substitute for its PM route -- e.g.
+# the driver making up a few minutes, or the 2pm departure having a little
+# real-world flex. Only overruns PAST this grace period count as a genuine
+# conflict. ADJUST or set to 0 to go back to a strict "any overrun = conflict"
+# model.
+CONFLICT_GRACE_PERIOD_MINUTES = 15.0
 
 
 def route_cost(hours: float) -> float:
@@ -80,13 +70,19 @@ def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Gener
     Run the Monte Carlo simulation for one (Day) worth of routes -- e.g. all
     'Weekdays' routes, or all 'Saturday' routes -- across both shifts.
 
+    TRAFFIC ONLY: pallet demand is held at its baseline (planned) value
+    every simulation -- demand is modelled separately elsewhere, not here.
+    Only driving time varies, via a traffic multiplier. Because demand never
+    changes from the planned figure (which was already capacity-feasible
+    when the route was built), there's no capacity-overflow risk to model
+    here -- that's a demand-driven risk, out of scope for this file.
+
     Capacity is modelled the way the MIP actually models it: a fixed number
     of trucks per shift (not an aggregate hour budget), so an individual
     route running long just costs overtime -- it doesn't need a wet-lease
     substitute UNLESS that truck is also booked for the OTHER shift that day
     and the overrun pushes its finish time past the next shift's start. That
-    truck-level conflict is the genuine capacity risk traffic can create
-    here, so that's what's simulated as the wet-lease trigger.
+    truck-level conflict is the genuine capacity risk traffic creates here.
     """
     group = group.reset_index(drop=True)
     baseline_pallets = group["Demand"].to_numpy(dtype=float)
@@ -110,11 +106,6 @@ def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Gener
     rows = []
     for sim in range(1, n_simulations + 1):
 
-        # ---- demand variability (per route, per simulation) ----
-        demand_sim = rng.normal(baseline_pallets, baseline_pallets * DEMAND_SIGMA_FRACTION)
-        demand_sim = np.clip(np.round(demand_sim), 0, None)
-        unload_hours_sim = demand_sim * UNLOAD_MINUTES_PER_PALLET / 60.0
-
         # ---- traffic variability (shift-level + route-level) ----
         traffic_factor = np.empty(n_routes)
         for shift_name, mean_mult in SHIFT_TRAFFIC_MEAN.items():
@@ -127,7 +118,9 @@ def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Gener
                                          sigma=ROUTE_TO_ROUTE_SIGMA, size=mask.sum())
             traffic_factor[mask] = shift_draw * route_draws
 
-        actual_hours = baseline_drive_hours * traffic_factor + unload_hours_sim
+        # demand held at its planned baseline every simulation -- unload
+        # time is fixed, not simulated
+        actual_hours = baseline_drive_hours * traffic_factor + baseline_unload_hours
 
         # ---- per-route cost, assuming every route runs as owned ----
         costs = np.array([route_cost(h) for h in actual_hours])
@@ -141,7 +134,8 @@ def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Gener
             am_idx = rows_by_shift["8am"]
             pm_idx = rows_by_shift["2pm"]
             am_finish_clock = shift_start_hour["8am"] + actual_hours[am_idx]
-            if am_finish_clock > shift_start_hour["2pm"]:
+            grace_hours = CONFLICT_GRACE_PERIOD_MINUTES / 60.0
+            if am_finish_clock > shift_start_hour["2pm"] + grace_hours:
                 n_conflicts += 1
                 # swap that PM route's cost from owned-rate to wet-lease-rate
                 costs[pm_idx] = math.ceil(actual_hours[pm_idx] / 2.0 - 1e-12) * WET_LEASE_COST_PER_2H_BLOCK
@@ -162,30 +156,6 @@ def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Gener
     return pd.DataFrame(rows)
 
 
-def summarise(results: pd.DataFrame, day_label: str, n_routes: int) -> pd.DataFrame:
-    return pd.DataFrame({
-        "metric": [
-            "Routes scheduled", "Mean total cost", "Median total cost",
-            "95th percentile total cost", "Mean total truck-hours",
-            "Mean # routes > 3.5h", "P(any route > 4h)",
-            "P(a shift-conflict occurs)", "Mean # conflicts per sim",
-            "Mean wet lease cost",
-        ],
-        f"{day_label}": [
-            n_routes,
-            results["total_cost"].mean(),
-            results["total_cost"].median(),
-            results["total_cost"].quantile(0.95),
-            results["total_hours"].mean(),
-            results["routes_over_3_5h"].mean(),
-            (results["routes_over_4h"] > 0).mean(),
-            (results["shift_conflicts"] > 0).mean(),
-            results["shift_conflicts"].mean(),
-            results["wet_lease_cost"].mean(),
-        ],
-    })
-
-
 def main() -> None:
     if not ROUTE_FILE.exists():
         raise FileNotFoundError(f"Missing {ROUTE_FILE.resolve()}")
@@ -196,21 +166,35 @@ def main() -> None:
     print(f"Loaded {len(routes):,} scheduled routes across "
           f"{routes['Day'].nunique()} day-type(s): {list(routes['Day'].unique())}\n")
 
-    summaries = []
+    all_results = []
     for day_label, group in routes.groupby("Day"):
-        print(f"Simulating {day_label} ({len(group)} routes, "
+        print(f"Simulating traffic for {day_label} ({len(group)} routes, "
               f"{N_SIMULATIONS:,} simulations)...")
         results = simulate_group(group, N_SIMULATIONS, rng)
-        summaries.append(summarise(results, day_label, len(group)))
+        results.insert(0, "Day", day_label)
+        all_results.append(results)
 
-    combined = summaries[0]
-    for s in summaries[1:]:
-        combined = combined.merge(s, on="metric")
+    combined_results = pd.concat(all_results, ignore_index=True)
+
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    combined_results.to_csv(OUTPUT_FILE, index=False)
 
     print("\n==============================")
-    print("SIMULATION RESULTS (by day-type)")
+    print("TRAFFIC-ONLY SIMULATION SUMMARY")
     print("==============================")
-    print(combined.to_string(index=False))
+    summary = combined_results.groupby("Day").agg(
+        Mean_Total_Cost=("total_cost", "mean"),
+        Median_Total_Cost=("total_cost", "median"),
+        P95_Total_Cost=("total_cost", lambda x: x.quantile(0.95)),
+        Mean_Total_Hours=("total_hours", "mean"),
+        P_Shift_Conflict=("shift_conflicts", lambda x: (x > 0).mean()),
+        Mean_Conflicts=("shift_conflicts", "mean"),
+        Mean_Wet_Lease_Cost=("wet_lease_cost", "mean"),
+    )
+    print(summary.to_string())
+    print()
+    print(f"Saved {len(combined_results):,} per-simulation rows to:")
+    print(f"  {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
