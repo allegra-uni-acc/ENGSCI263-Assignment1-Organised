@@ -1,357 +1,251 @@
-# ============================================================
-# BOOTSTRAPPING DEMAND + ROUTING + MIP  (PARALLELIZED)
-# ============================================================
-#
-# Same methodology as the original script -- only the execution
-# strategy changed: bootstrap iterations are independent of each
-# other, so they're run across multiple processes instead of one
-# at a time. See the bottom of this file for other speed-ups that
-# require changes to route_generation.py / mixed_integer_program.py.
-#
-# ============================================================
+from __future__ import annotations
 
-import importlib
-import os
-import time
-import concurrent.futures
+import math
+from pathlib import Path
+from typing import List
 
 import numpy as np
 import pandas as pd
 
+# =========================
+# USER SETTINGS
+# =========================
 
-# ============================================================
-# FILES
-# ============================================================
+ROUTE_FILE = Path(__file__).resolve().parent / "project_data" / "Scheduled_Optimal_Routes.csv"
 
-DEMAND_FILE = "project_data/FoodstuffsDemand2026.csv"
-DURATIONS_FILE = "project_data/FoodstuffsDurations2026.csv"
-LOCATIONS_FILE = "project_data/FoodstuffsLocations.csv"
-
-ROUTING_MODULE_NAME = "route_generation"
-MIP_MODULE_NAME = "mixed_integer_program"
-
-N_BOOTSTRAPS = 1000
+N_SIMULATIONS = 1000
 RANDOM_SEED = 263
-Z_VALUE = 1.96
 
-# Leave None to auto-detect (uses all logical cores). Set an explicit
-# number if you want to leave some cores free for other work.
-N_WORKERS = None
+# --- Traffic variation ---------------------------------------------------
+# Shared across all routes in the same (Day, Shift) group in a given
+# simulation -- represents "today's 8am peak was worse/better than usual".
+SHIFT_TO_SHIFT_SIGMA = 0.10
+# Independent variation for each individual route on top of that.
+ROUTE_TO_ROUTE_SIGMA = 0.06
 
-OUTPUT_DIR = "project_data"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# ASSUMPTION: mean traffic multiplier per shift. 8am overlaps the morning
+# commute peak more heavily than 2pm (which only tails into the evening
+# peak toward the end of a long route); both are centred so a "typical"
+# day reproduces roughly the durations already in the schedule.
+# ADJUST THESE if you have real traffic-index data to calibrate against.
+SHIFT_TRAFFIC_MEAN = {
+    "8am": 1.03,
+    "2pm": 1.02,
+}
 
+# --- Demand variation ------------------------------------------------------
+# Day-to-day variation in pallets ordered per store, as a fraction of the
+# planned (baseline) demand on that route. ADJUST to match how noisy your
+# actual demand data is (e.g. std dev of Avg_Demand.csv per store/day).
+DEMAND_SIGMA_FRACTION = 0.15
 
-# ============================================================
-# LOAD + PREPARE DEMAND  (unchanged from your original)
-# ============================================================
+# --- Project constants -------------------------------------------------
+UNLOAD_MINUTES_PER_PALLET = 18.0
+TRUCK_COST_PER_HOUR = 220.0
+OVERTIME_THRESHOLD_HOURS = 4.0
+OVERTIME_COST_PER_HOUR = 310.0
+WET_LEASE_COST_PER_2H_BLOCK = 1400.0
+TRUCK_CAPACITY = 16.0  # pallets -- a truck physically cannot carry more
 
-def load_raw_demand():
-    data = pd.read_csv(DEMAND_FILE)
-    print(f"Loaded {data['Supermarket'].nunique()} stores and "
-          f"{len(data.columns) - 1} daily observations.")
-    return data
+TRUCKS_PER_SHIFT = 20
+SHIFT_TARGET_HOURS = 3.5
 
-
-def prepare_demand_data(data):
-    data_melt = data.melt(id_vars="Supermarket", var_name="Date", value_name="Demand")
-    data_melt["Date"] = pd.to_datetime(data_melt["Date"], dayfirst=True)
-    data_melt["Day"] = data_melt["Date"].dt.day_name()
-
-    data_melt["Chain"] = ""
-    data_melt.loc[data_melt["Supermarket"].str.startswith("Four"), "Chain"] = "Four Square"
-    data_melt.loc[data_melt["Supermarket"].str.startswith("New"), "Chain"] = "New World"
-    data_melt.loc[data_melt["Supermarket"].str.startswith("Pak"), "Chain"] = "PAK'nSAVE"
-
-    data_melt = data_melt[data_melt["Day"] != "Sunday"]
-    data_melt = data_melt[
-        (data_melt["Date"] != pd.Timestamp("2026-06-01"))
-        & (data_melt["Demand"] < 20)
-    ]
-
-    data_melt["Period"] = ""
-    data_melt.loc[
-        data_melt["Day"].isin(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]),
-        "Period",
-    ] = "Weekdays"
-    data_melt.loc[data_melt["Day"] == "Saturday", "Period"] = "Saturday"
-    data_melt = data_melt[data_melt["Period"] != ""].copy()
-
-    return data_melt
+# SIMPLIFICATION: a truck whose AM route finishes only slightly after 14:00
+# is treated as NOT needing a wet-lease substitute for its PM route -- e.g.
+# the driver making up a few minutes, or the 2pm departure having a little
+# real-world flex. Only overruns PAST this grace period count as a genuine
+# conflict. This softens the (very real) razor-thin baseline slack on
+# several trucks in the schedule -- it does not change that underlying
+# fragility, just how much of it this simulation treats as costly.
+# ADJUST or set to 0 to go back to a strict "any overrun = conflict" model.
+CONFLICT_GRACE_PERIOD_MINUTES = 15.0
 
 
-def calculate_demand_simplified(data_melt):
-    mean = data_melt.groupby(["Supermarket", "Period"])["Demand"].mean()
-    std_dev = data_melt.groupby(["Supermarket", "Period"])["Demand"].std()
-    upper = mean + Z_VALUE * std_dev
-    estimate = np.ceil(upper).astype(int)
-
-    warehouse_rows = pd.Series(
-        0,
-        index=pd.MultiIndex.from_product(
-            [["Warehouse"], estimate.index.get_level_values("Period").unique()],
-            names=["Supermarket", "Period"],
-        ),
-    )
-    estimate = pd.concat([estimate, warehouse_rows])
-    return estimate.rename("Demand").reset_index()
+def parse_route(route_text: str) -> List[str]:
+    return [p.strip() for p in str(route_text).split("->") if p.strip()]
 
 
-# ============================================================
-# BOOTSTRAP DEMAND  (unchanged)
-# ============================================================
-
-def bootstrap_demand(data_melt, rng):
-    bootstrap_rows = []
-    grouped = data_melt.groupby(["Supermarket", "Period"])
-
-    for (supermarket, period), group in grouped:
-        values = group["Demand"].dropna().to_numpy()
-        bootstrap_sample = rng.choice(values, size=len(values), replace=True)
-        mean = np.mean(bootstrap_sample)
-        std_dev = np.std(bootstrap_sample, ddof=1) if len(bootstrap_sample) > 1 else 0.0
-        upper = mean + Z_VALUE * std_dev
-        demand_estimate = int(np.ceil(upper))
-        bootstrap_rows.append({"Supermarket": supermarket, "Period": period, "Demand": demand_estimate})
-
-    bootstrap_df = pd.DataFrame(bootstrap_rows)
-
-    warehouse_rows = pd.DataFrame({
-        "Supermarket": ["Warehouse", "Warehouse"],
-        "Period": ["Weekdays", "Saturday"],
-        "Demand": [0, 0],
-    })
-    bootstrap_df = pd.concat([bootstrap_df, warehouse_rows], ignore_index=True)
-    bootstrap_df["Demand"] = bootstrap_df["Demand"].astype(int)
-    return bootstrap_df
+def route_cost(hours: float) -> float:
+    """
+    Cost of a single route given its (simulated) total hours.
+    Hours up to OVERTIME_THRESHOLD_HOURS are billed at TRUCK_COST_PER_HOUR;
+    hours beyond that are billed at OVERTIME_COST_PER_HOUR INSTEAD of the
+    normal rate for those extra hours (not stacked on top of it), per the
+    brief: "the extra time costs Foodstuffs $310 per hour (or part thereof)".
+    """
+    if hours <= OVERTIME_THRESHOLD_HOURS:
+        return hours * TRUCK_COST_PER_HOUR
+    normal_part = OVERTIME_THRESHOLD_HOURS * TRUCK_COST_PER_HOUR
+    overtime_hours = math.ceil(hours - OVERTIME_THRESHOLD_HOURS - 1e-12)  # charged per hour or part thereof
+    return normal_part + overtime_hours * OVERTIME_COST_PER_HOUR
 
 
-def validate_bootstrap_demand(bootstrap_df):
-    required_columns = {"Supermarket", "Period", "Demand"}
-    missing_columns = required_columns - set(bootstrap_df.columns)
-    if missing_columns:
-        raise ValueError(f"Missing columns in bootstrap demand: {missing_columns}")
+def simulate_group(group: pd.DataFrame, n_simulations: int, rng: np.random.Generator) -> pd.DataFrame:
+    """
+    Run the Monte Carlo simulation for one (Day) worth of routes -- e.g. all
+    'Weekdays' routes, or all 'Saturday' routes -- across both shifts.
 
-    periods = set(bootstrap_df["Period"])
-    if periods != {"Weekdays", "Saturday"}:
-        raise ValueError(f"Unexpected periods: {periods}")
+    Capacity is modelled the way the MIP actually models it: a fixed number
+    of trucks per shift (not an aggregate hour budget), so an individual
+    route running long just costs overtime -- it doesn't need a wet-lease
+    substitute UNLESS that truck is also booked for the OTHER shift that day
+    and the overrun pushes its finish time past the next shift's start. That
+    truck-level conflict is the genuine capacity risk traffic can create
+    here, so that's what's simulated as the wet-lease trigger.
+    """
+    group = group.reset_index(drop=True)
+    baseline_pallets = group["Demand"].to_numpy(dtype=float)
+    baseline_unload_hours = baseline_pallets * UNLOAD_MINUTES_PER_PALLET / 60.0
+    baseline_drive_hours = np.maximum(0.0, group["Duration_hours"].to_numpy() - baseline_unload_hours)
+    shifts = group["Scheduled_Shift"].to_numpy()
+    trucks = group["Truck"].to_numpy()
+    n_routes = len(group)
 
-    non_warehouse = bootstrap_df[bootstrap_df["Supermarket"] != "Warehouse"]
-    n_stores = non_warehouse["Supermarket"].nunique()
-    if n_stores != 55:
-        raise ValueError(f"Expected 55 stores, found {n_stores}.")
-
-    warehouse = bootstrap_df[bootstrap_df["Supermarket"] == "Warehouse"]
-    if len(warehouse) != 2:
-        raise ValueError("Expected two Warehouse rows.")
-    if not (warehouse["Demand"] == 0).all():
-        raise ValueError("Warehouse demand must be zero.")
-
-
-# ============================================================
-# MODULE LOADING -- done ONCE PER WORKER PROCESS, not per bootstrap
-# ============================================================
-
-# Populated once per worker process by _init_worker; each worker
-# process gets its own copy of these globals.
-_routing_module = None
-_mip_module = None
-
-
-def _load_modules():
-    routing_module = importlib.import_module(ROUTING_MODULE_NAME)
-    mip_module = importlib.import_module(MIP_MODULE_NAME)
-
-    if not hasattr(routing_module, "generate_feasible_routes"):
-        raise AttributeError(
-            "\nYour routing file does not contain:\n\ngenerate_feasible_routes()\n\n"
-            f"Expected file:\n{ROUTING_MODULE_NAME}.py"
-        )
-    if not hasattr(mip_module, "run_mip_baseline_grouped"):
-        raise AttributeError(
-            "\nYour MIP file does not contain:\n\nrun_mip_baseline_grouped()\n\n"
-            f"Expected file:\n{MIP_MODULE_NAME}.py"
-        )
-    return routing_module, mip_module
-
-
-def _init_worker():
-    """Runs once when each worker process starts -- imports the
-    routing/MIP modules a single time per process instead of once
-    per bootstrap iteration."""
-    global _routing_module, _mip_module
-    _routing_module, _mip_module = _load_modules()
-
-
-# ============================================================
-# ROUTING + MIP  (unchanged logic)
-# ============================================================
-
-def run_routing(routing_module, bootstrap_df):
-    return routing_module.generate_feasible_routes(
-        demand_source=bootstrap_df,
-        durations_file=DURATIONS_FILE,
-        locations_file=LOCATIONS_FILE,
-        silent=True,
-    )
-
-
-def run_mip(mip_module, routes_df):
-    (weekday_cost, weekday_owned, weekday_leased,
-     weekday_routes, weekday_skipped) = mip_module.run_mip_baseline_grouped(
-        routes_df, "Weekdays", ["Weekdays"], model_choice="C", silent=True,
-    )
-    (saturday_cost, saturday_owned, saturday_leased,
-     saturday_routes, saturday_skipped) = mip_module.run_mip_baseline_grouped(
-        routes_df, "Saturday", ["Saturday"], model_choice="C", silent=True,
-    )
-
-    weekly_cost = weekday_cost * 5 + saturday_cost
-
-    weekday_skipped_count = sum(len(s) for s in weekday_skipped.values())
-    saturday_skipped_count = sum(len(s) for s in saturday_skipped.values())
-
-    weekday_route_demand = weekday_routes["Demand"].sum() if not weekday_routes.empty else 0
-    saturday_route_demand = saturday_routes["Demand"].sum() if not saturday_routes.empty else 0
-    total_route_demand = weekday_route_demand + saturday_route_demand
-
-    return {
-        "Weekday_Cost": weekday_cost,
-        "Saturday_Cost": saturday_cost,
-        "Weekly_Cost": weekly_cost,
-        "Total_Route_Demand": total_route_demand,
-        "Weekday_Owned": weekday_owned,
-        "Weekday_Leased": weekday_leased,
-        "Saturday_Owned": saturday_owned,
-        "Saturday_Leased": saturday_leased,
-        "Weekday_Skipped": weekday_skipped_count,
-        "Saturday_Skipped": saturday_skipped_count,
+    # Identify trucks double-booked across both shifts on this day, and the
+    # row positions of their AM / PM routes.
+    truck_shift_rows = {}
+    for i, (truck, shift) in enumerate(zip(trucks, shifts)):
+        truck_shift_rows.setdefault(truck, {})[shift] = i
+    double_shift_trucks = {
+        truck: rows for truck, rows in truck_shift_rows.items()
+        if "8am" in rows and "2pm" in rows
     }
+    shift_start_hour = {"8am": 8.0, "2pm": 14.0}
+
+    rows = []
+    for sim in range(1, n_simulations + 1):
+
+        # ---- demand variability (per route, per simulation) ----
+        demand_sim = rng.normal(baseline_pallets, baseline_pallets * DEMAND_SIGMA_FRACTION)
+        demand_sim = np.clip(np.round(demand_sim), 0, None)
+
+        # A truck can only physically carry TRUCK_CAPACITY pallets. Demand
+        # above that on a route can't ride along with the scheduled truck --
+        # it needs a SEPARATE wet-lease truck sent for the overflow pallets.
+        # ASSUMPTION: since this simulation works at route level (not
+        # per-store), the overflow truck's travel time is approximated as
+        # the same as the original route's baseline driving time (it's
+        # heading to the same area) -- only its unload time is specific to
+        # the overflow amount. Adjust this if you have per-store demand
+        # detail to route the overflow truck more precisely.
+        capped_demand = np.minimum(demand_sim, TRUCK_CAPACITY)
+        overflow_demand = np.maximum(0.0, demand_sim - TRUCK_CAPACITY)
+        unload_hours_sim = capped_demand * UNLOAD_MINUTES_PER_PALLET / 60.0
+
+        # ---- traffic variability (shift-level + route-level) ----
+        traffic_factor = np.empty(n_routes)
+        for shift_name, mean_mult in SHIFT_TRAFFIC_MEAN.items():
+            mask = shifts == shift_name
+            if not mask.any():
+                continue
+            shift_draw = rng.lognormal(mean=math.log(mean_mult) - 0.5 * SHIFT_TO_SHIFT_SIGMA ** 2,
+                                        sigma=SHIFT_TO_SHIFT_SIGMA)
+            route_draws = rng.lognormal(mean=-0.5 * ROUTE_TO_ROUTE_SIGMA ** 2,
+                                         sigma=ROUTE_TO_ROUTE_SIGMA, size=mask.sum())
+            traffic_factor[mask] = shift_draw * route_draws
+
+        actual_hours = baseline_drive_hours * traffic_factor + unload_hours_sim
+
+        # ---- per-route cost, assuming every route runs as owned ----
+        costs = np.array([route_cost(h) for h in actual_hours])
+
+        # ---- overflow wet-lease trucks for demand exceeding capacity ----
+        overflow_cost = 0.0
+        n_overflow_events = int((overflow_demand > 0).sum())
+        if n_overflow_events > 0:
+            overflow_hours = baseline_drive_hours + overflow_demand * UNLOAD_MINUTES_PER_PALLET / 60.0
+            overflow_hours = overflow_hours[overflow_demand > 0]
+            overflow_blocks = np.ceil(overflow_hours / 2.0 - 1e-12)
+            overflow_cost = float((overflow_blocks * WET_LEASE_COST_PER_2H_BLOCK).sum())
+
+        # ---- truck-level conflict check: does an AM overrun eat into this
+        #      truck's own PM slot? If so, that PM route needs a wet-lease
+        #      substitute instead of the owned truck. ----
+        wet_lease_cost = 0.0
+        n_conflicts = 0
+        for truck, rows_by_shift in double_shift_trucks.items():
+            am_idx = rows_by_shift["8am"]
+            pm_idx = rows_by_shift["2pm"]
+            am_finish_clock = shift_start_hour["8am"] + actual_hours[am_idx]
+            grace_hours = CONFLICT_GRACE_PERIOD_MINUTES / 60.0
+            if am_finish_clock > shift_start_hour["2pm"] + grace_hours:
+                n_conflicts += 1
+                # swap that PM route's cost from owned-rate to wet-lease-rate
+                costs[pm_idx] = math.ceil(actual_hours[pm_idx] / 2.0 - 1e-12) * WET_LEASE_COST_PER_2H_BLOCK
+                wet_lease_cost += costs[pm_idx]
+
+        total_cost = costs.sum() + overflow_cost
+
+        rows.append({
+            "simulation": sim,
+            "total_hours": actual_hours.sum(),
+            "routes_over_3_5h": int((actual_hours > 3.5).sum()),
+            "routes_over_4h": int((actual_hours > 4.0).sum()),
+            "shift_conflicts": n_conflicts,
+            "wet_lease_cost": wet_lease_cost,
+            "capacity_overflow_events": n_overflow_events,
+            "capacity_overflow_cost": overflow_cost,
+            "total_cost": total_cost,
+        })
+
+    return pd.DataFrame(rows)
 
 
-# ============================================================
-# ONE BOOTSTRAP -- runs inside a worker process
-# ============================================================
-
-def _run_one_bootstrap(args):
-    bootstrap_number, data_melt, seed = args
-    rng = np.random.default_rng(seed)
-
-    bootstrap_df = bootstrap_demand(data_melt, rng)
-    validate_bootstrap_demand(bootstrap_df)
-
-    routes_df = run_routing(_routing_module, bootstrap_df)
-    mip_result = run_mip(_mip_module, routes_df)
-
-    return {
-        "Bootstrap": bootstrap_number,
-        "Weekday_Cost": mip_result["Weekday_Cost"],
-        "Saturday_Cost": mip_result["Saturday_Cost"],
-        "Weekly_Cost": mip_result["Weekly_Cost"],
-        "Total_Route_Demand": mip_result["Total_Route_Demand"],
-        "Weekday_Owned": mip_result["Weekday_Owned"],
-        "Weekday_Leased": mip_result["Weekday_Leased"],
-        "Saturday_Owned": mip_result["Saturday_Owned"],
-        "Saturday_Leased": mip_result["Saturday_Leased"],
-        "Weekday_Skipped": mip_result["Weekday_Skipped"],
-        "Saturday_Skipped": mip_result["Saturday_Skipped"],
-    }
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-if __name__ == "__main__":
-
-    start_time = time.time()
-
-    print("Loading raw demand data...")
-    raw_data = load_raw_demand()
-    data_melt = prepare_demand_data(raw_data)
-    print(f"After cleaning: {len(data_melt)} observations.")
-
-    simplified_demand = calculate_demand_simplified(data_melt)
-
-    n_workers = N_WORKERS or os.cpu_count()
-
-    print()
-    print("=" * 60)
-    print("BOOTSTRAPPING DEMAND (parallel)")
-    print("=" * 60)
-    print(f"Bootstrap samples: {N_BOOTSTRAPS}")
-    print(f"Worker processes: {n_workers}")
-    print("Method: mean + 1.96 x sample SD, rounded up")
-    print("Bootstrap level: Store x Period")
-    print("Periods: Weekdays / Saturday")
-    print("=" * 60)
-
-    # One independent, high-quality seed per bootstrap so workers
-    # don't produce correlated random draws.
-    seed_sequence = np.random.SeedSequence(RANDOM_SEED)
-    child_seeds = seed_sequence.spawn(N_BOOTSTRAPS)
-
-    tasks = [
-        (b, data_melt, child_seeds[b - 1])
-        for b in range(1, N_BOOTSTRAPS + 1)
-    ]
-
-    results = []
-    completed = 0
-
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=n_workers, initializer=_init_worker
-    ) as executor:
-        futures = {executor.submit(_run_one_bootstrap, task): task[0] for task in tasks}
-
-        for future in concurrent.futures.as_completed(futures):
-            bootstrap_number = futures[future]
-            try:
-                result = future.result()
-            except Exception as exc:
-                print(f"Bootstrap {bootstrap_number} failed: {exc}")
-                raise
-            results.append(result)
-            completed += 1
-            if completed == 1 or completed % 10 == 0 or completed == N_BOOTSTRAPS:
-                elapsed = time.time() - start_time
-                print(f"Completed {completed}/{N_BOOTSTRAPS}... ({elapsed:.1f}s elapsed)")
-
-    # restore bootstrap order (as_completed finishes out of order)
-    results.sort(key=lambda r: r["Bootstrap"])
-    results_df = pd.DataFrame(results)
-
-    results_df.to_csv(os.path.join(OUTPUT_DIR, "simulation_demand_results.csv"), index=False)
-
-    # ---- cost summary ----
-    costs = results_df["Weekly_Cost"]
-    summary = pd.DataFrame({
-        "Statistic": ["Mean", "Median", "Standard Deviation", "5th Percentile",
-                      "95th Percentile", "Minimum", "Maximum"],
-        "Weekly_Cost_NZD": [
-            costs.mean(), costs.median(), costs.std(),
-            np.percentile(costs, 5), np.percentile(costs, 95),
-            costs.min(), costs.max(),
+def summarise(results: pd.DataFrame, day_label: str, n_routes: int) -> pd.DataFrame:
+    return pd.DataFrame({
+        "metric": [
+            "Routes scheduled", "Mean total cost", "Median total cost",
+            "95th pct total cost", "Mean total truck-hours",
+            "Mean # routes > 3.5h", "P(any route > 4h)",
+            "P(a shift-conflict occurs)", "Mean # conflicts per sim",
+            "Mean shift-conflict wet lease cost",
+            "P(a capacity-overflow occurs)", "Mean # overflow events per sim",
+            "Mean overflow wet lease cost",
+        ],
+        f"{day_label}": [
+            n_routes,
+            results["total_cost"].mean(),
+            results["total_cost"].median(),
+            results["total_cost"].quantile(0.95),
+            results["total_hours"].mean(),
+            results["routes_over_3_5h"].mean(),
+            (results["routes_over_4h"] > 0).mean(),
+            (results["shift_conflicts"] > 0).mean(),
+            results["shift_conflicts"].mean(),
+            results["wet_lease_cost"].mean(),
+            (results["capacity_overflow_events"] > 0).mean(),
+            results["capacity_overflow_events"].mean(),
+            results["capacity_overflow_cost"].mean(),
         ],
     })
-    summary.to_csv(os.path.join(OUTPUT_DIR, "simulation_demand_summary.csv"), index=False)
 
-    total_time = time.time() - start_time
-    print()
-    print("=" * 60)
-    print("BOOTSTRAP COMPLETE")
-    print("=" * 60)
-    print(f"Successful bootstraps: {len(results_df)}")
-    print(f"Total time: {total_time:.1f}s ({total_time / N_BOOTSTRAPS:.2f}s per bootstrap avg)")
-    print()
-    print(f"Mean weekly cost: ${costs.mean():,.2f}")
-    print(f"Median weekly cost: ${costs.median():,.2f}")
-    print(f"Standard deviation: ${costs.std():,.2f}")
-    print()
-    print(f"5th percentile: ${np.percentile(costs, 5):,.2f}")
-    print(f"95th percentile: ${np.percentile(costs, 95):,.2f}")
-    print()
-    print("Files saved:")
-    print("  simulation_demand_results.csv")
-    print("  simulation_demand_summary.csv")
-    print("=" * 60)
+
+def main() -> None:
+    if not ROUTE_FILE.exists():
+        raise FileNotFoundError(f"Missing {ROUTE_FILE.resolve()}")
+
+    routes = pd.read_csv(ROUTE_FILE)
+    rng = np.random.default_rng(RANDOM_SEED)
+
+    print(f"Loaded {len(routes):,} scheduled routes across "
+          f"{routes['Day'].nunique()} day-type(s): {list(routes['Day'].unique())}\n")
+
+    summaries = []
+    for day_label, group in routes.groupby("Day"):
+        print(f"Simulating {day_label} ({len(group)} routes, "
+              f"{N_SIMULATIONS:,} simulations)...")
+        results = simulate_group(group, N_SIMULATIONS, rng)
+        summaries.append(summarise(results, day_label, len(group)))
+
+    combined = summaries[0]
+    for s in summaries[1:]:
+        combined = combined.merge(s, on="metric")
+
+    print("\n==============================")
+    print("SIMULATION RESULTS (by day-type)")
+    print("==============================")
+    print(combined.to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()
