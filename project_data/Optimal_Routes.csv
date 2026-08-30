@@ -15,12 +15,12 @@ Weekdays,Warehouse -> Four Square Eden Terrace -> New World Point Chevalier -> W
 Weekdays,Warehouse -> New World Remuera -> Warehouse,10.0,3.897319444444444,857.41,2800.0,Owned,857.41
 Weekdays,Warehouse -> New World Stonefields -> Four Square St Heliers -> Warehouse,15.0,5.890266666666666,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Albany -> Warehouse,15.0,5.961108333333333,1500.0,4200.0,Owned,1500.0
-Weekdays,Warehouse -> Pak 'n Save Botany -> Warehouse,14.0,5.571505555555556,1500.0,4200.0,Owned,1500.0
+Weekdays,Warehouse -> Pak 'n Save Botany -> Warehouse,14.0,5.5715055555555555,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Clendon -> Warehouse,14.0,5.257594444444445,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Highland Park -> Warehouse,14.0,5.521769444444445,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Henderson -> Warehouse,14.0,5.130858333333333,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Lincoln Road -> Warehouse,15.0,5.289413888888888,1500.0,4200.0,Owned,1500.0
-Weekdays,Warehouse -> Pak 'n Save Mangere -> Warehouse,14.0,4.844325,1190.0,4200.0,Owned,1190.0
+Weekdays,Warehouse -> Pak 'n Save Mangere -> Warehouse,14.0,4.8443249999999995,1190.0,4200.0,Owned,1190.0
 Weekdays,Warehouse -> Pak 'n Save Manukau -> Warehouse,14.0,5.132416666666667,1500.0,4200.0,Owned,1500.0
 Weekdays,Warehouse -> Pak 'n Save Mt Albert -> Warehouse,14.0,4.560908333333334,1190.0,4200.0,Owned,1190.0
 Weekdays,Warehouse -> Pak 'n Save Ormiston -> Warehouse,15.0,5.727008333333333,1500.0,4200.0,Owned,1500.0
@@ -39,7 +39,7 @@ Saturday,Warehouse -> New World Birkenhead -> New World Devonport -> New World M
 Saturday,Warehouse -> Four Square Pakuranga Heights -> Pak 'n Save Botany -> New World Botany -> Warehouse,15.0,5.858166666666667,1500.0,4200.0,Owned,1500.0
 Saturday,Warehouse -> New World Long Bay -> Four Square Torbay -> New World Browns Bay -> New World Milford -> Warehouse,16.0,6.744922222222223,1810.0,5600.0,Owned,1810.0
 Saturday,Warehouse -> Pak 'n Save Glen Innes -> New World Eastridge -> Warehouse,12.0,4.980722222222222,1190.0,4200.0,Owned,1190.0
-Saturday,Warehouse -> New World New Lynn -> Four Square Glen Eden -> New World Green Bay -> Warehouse,10.0,3.811486111111112,838.53,2800.0,Owned,838.53
+Saturday,Warehouse -> New World New Lynn -> Four Square Glen Eden -> New World Green Bay -> Warehouse,10.0,3.8114861111111114,838.53,2800.0,Owned,838.53
 Saturday,Warehouse -> Pak 'n Save Highland Park -> Four Square Cockle Bay -> New World Howick -> Warehouse,11.0,4.857713888888889,1190.0,4200.0,Owned,1190.0
 Saturday,Warehouse -> New World Victoria Park -> Four Square Britomart -> New World Metro Queen St -> Four Square Eden Terrace -> Warehouse,10.0,3.977688888888889,875.09,2800.0,Owned,875.09
 Saturday,Warehouse -> New World Mt Albert -> New World Point Chevalier -> Warehouse,10.0,3.585755555555556,788.87,2800.0,Owned,788.87
@@ -51,9 +51,9 @@ Saturday,Warehouse -> New World Papatoetoe -> New World Southmall -> Warehouse,9
 Saturday,Warehouse -> Four Square Ellerslie -> New World Stonefields -> Four Square St Heliers -> Warehouse,8.0,3.8145777777777776,839.21,2800.0,Owned,839.21
 Saturday,Warehouse -> Pak 'n Save Albany -> Warehouse,8.0,3.861108333333333,849.44,2800.0,Owned,849.44
 Saturday,Warehouse -> Pak 'n Save Clendon -> Warehouse,7.0,3.1575944444444444,694.67,2800.0,Owned,694.67
-Saturday,Warehouse -> Pak 'n Save Henderson -> Warehouse,9.0,3.630858333333333,798.79,2800.0,Owned,798.79
+Saturday,Warehouse -> Pak 'n Save Henderson -> Warehouse,9.0,3.6308583333333337,798.79,2800.0,Owned,798.79
 Saturday,Warehouse -> Pak 'n Save Lincoln Road -> Four Square Fair Price Henderson -> Warehouse,10.0,3.912919444444445,860.84,2800.0,Owned,860.84
-Saturday,Warehouse -> Pak 'n Save Mangere -> Warehouse,8.0,3.044325,669.75,2800.0,Owned,669.75
+Saturday,Warehouse -> Pak 'n Save Mangere -> Warehouse,8.0,3.0443249999999997,669.75,2800.0,Owned,669.75
 Saturday,Warehouse -> Pak 'n Save Manukau -> Four Square Botany Junction -> Warehouse,9.0,3.849830555555555,846.96,2800.0,Owned,846.96
 Saturday,Warehouse -> Pak 'n Save Royal Oak -> Four Square Onehunga -> Warehouse,10.0,3.4931916666666667,768.5,2800.0,Owned,768.5
 Saturday,Warehouse -> Pak 'n Save Sylvia Park -> Warehouse,8.0,3.4915416666666665,768.14,2800.0,Owned,768.14
