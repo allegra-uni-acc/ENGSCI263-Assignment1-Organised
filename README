@@ -38,7 +38,7 @@ Individual simulations in no particular order:
 ++++++++++++++++++++++++++++++++++++++++++++++
 
 TRAFFIC SIMULATION:
-simulation_traffic.py
+New_traffic_simulation.py
     generates: NAME OF FILES IT OUTPUTS HERE
  -> simulation_traffic_visualisations.py
 
@@ -50,3 +50,7 @@ simulation_demand.py
                     Then plots the data using the visualisation file. This came out very well.
  -> simulation_demand_visualisations.ipynb
 
+COMBINED SIM (USE THIS):
+combined_demand_traffic_sim.ipynb
+    generates: visualisations within the note book as well as a paired ttest
+                    - uses Monte Carlo simulation structure, normal for demand, lognormal multipliers for traffic
