@@ -54,3 +54,7 @@ COMBINED SIM (USE THIS):
 combined_demand_traffic_sim.ipynb
     generates: visualisations within the note book as well as a paired ttest
                     - uses Monte Carlo simulation structure, normal for demand, lognormal multipliers for traffic
+
+PAIRED T-TEST
+paired_ttest_fuel_base.ipynb
+    generates paired t-test and visualisations in the notebook
