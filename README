@@ -16,6 +16,8 @@ route_generation.py
                     - saved to project_data
 mixed_integer_program.py ---> for this enter 'C' on keyboard when prompted to run cost reduction specifically
     generates: Optimal_Routes.csv
+                Renamed files in repo: Optimal_Routes_Cost.csv
+                                       Optimal_Routes_Fuel.csv
                     - table with the combination of routes that is optimal
                     - saved to project_data
                MIP_Summary.csv
@@ -30,7 +32,7 @@ mapping.ipynb
                Optimal_Routes_Weekdays_2PM.html
                Optimal_Routes_Saturdays_8AM.html
                Optimal_Routes_Saturdays_2PM.html
-                    - maps in html format for each shift Weekdays and Saturdays, can be screenshoted
+                    - maps in html format for each shift Weekdays and Saturdays, can be screenshotted
                     - saved to project_data/maps
 
 ++++++++++++++++++++++++++++++++++++++++++++++
@@ -39,22 +41,40 @@ Individual simulations in no particular order:
 
 TRAFFIC SIMULATION:
 New_traffic_simulation.py
-    generates: NAME OF FILES IT OUTPUTS HERE
+    generates: output simulation data ONLY for traffic
  -> simulation_traffic_visualisations.py
+
+simulation_traffic.py
+    - old simulation that does NOT output the correct data
 
 DEMAND SIMULATION:
 simulation_demand.py
     generates: simulation_demand_results.csv
                simulation_demand_summary.csv
                     - bootstraps all the raw demand values and sends it through route gen and LP.
-                    Then plots the data using the visualisation file. This came out very well.
+                    Then plots the data using the visualisation file.
+                    - This is ONLY simulation on demand
  -> simulation_demand_visualisations.ipynb
 
 COMBINED SIM (USE THIS):
 combined_demand_traffic_sim.ipynb
-    generates: visualisations within the note book as well as a paired ttest
-                    - uses Monte Carlo simulation structure, normal for demand, lognormal multipliers for traffic
+    generates: visualisations within the notebook as well as a paired ttest
+                    - uses Monte Carlo simulation structure, bootstrap for demand, lognormal multipliers for traffic
+                    - both get applied
 
-PAIRED T-TEST
+PAIRED T-TESTS:
 paired_ttest_fuel_base.ipynb
-    generates paired t-test and visualisations in the notebook
+    generates: paired t-test and visualisations in the notebook
+                    - uses Monte Carlo simulation structure, bootstrap for demand, lognormal multipliers for traffic
+                    - applies this to fuel data in Optimal_Routes_Cost.csv and Optimal_Routes_Fuel.csv
+                    - a paired ttest is then applied
+
+paired_traffic_no_traffic_ttest.ipynb
+    generates: t-test comparing traffic vs. no traffic conditions
+
+OTHER VISUALIZATIONS & ASSETS:
+cost_and_demand_visualizations.py
+    - script used to plot cost and demand figures
+
+weekly_pallet_demand_vs_lp_baseline.png
+    - generated plot comparing weekly pallet demand against the LP baseline
